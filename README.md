@@ -35,8 +35,9 @@ npm --workspace @rpow/web run dev
 ## Deploy
 
 - Server: Fly.io (`api.rpow2.com`)
-- Web: Cloudflare Pages (`rpow2.com`)
-- DB: Neon Postgres
+- Web: Netlify (`rpow2.com`)
+- DB: Neon Postgres (serverless)
 - Email: Resend
+- DNS: GoDaddy (registrar)
 
 See `docs/RUNBOOK.md` for operator instructions.
