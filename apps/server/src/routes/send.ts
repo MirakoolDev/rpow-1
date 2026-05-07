@@ -25,9 +25,13 @@ export async function sendRoutes(app: FastifyInstance) {
 
     if (recipient === sender) return reply.code(400).send({ error: 'BAD_REQUEST', message: 'cannot send to self' });
 
-    let out;
+    type SendResult =
+      | { ok: true; transferred: number; recipient_email: string; transfer_id: string }
+      | { error: 'BAD_REQUEST' | 'RECIPIENT_NOT_FOUND' | 'INSUFFICIENT_BALANCE'; message: string; status: number };
+
+    let out!: SendResult;
     try {
-    out = await withTx(app.pool, async (c) => {
+    out = await withTx<SendResult>(app.pool, async (c) => {
       const existing = await c.query<{ id: string; recipient_email: string; amount: number }>(
         'SELECT id, recipient_email, amount FROM transfers WHERE idempotency_key=$1', [idem],
       );
