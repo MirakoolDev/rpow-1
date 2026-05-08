@@ -5,13 +5,13 @@ export interface AuthRequestResponse { ok: true; cooldown_seconds: number }
 
 export interface MeResponse {
   email: string;
-  balance: number;
-  minted: number;
-  sent: number;
-  received: number;
+  balance_base_units: string;
+  minted_base_units: string;
+  sent_base_units: string;
+  received_base_units: string;
   wrap_allowed: boolean;
   solana_wallet: string | null;
-  srpow_supply_owned: number;
+  srpow_supply_owned_base_units: string;
 }
 
 export interface ChallengeResponse {

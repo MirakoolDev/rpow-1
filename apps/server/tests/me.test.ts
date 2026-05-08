@@ -26,13 +26,13 @@ describe('GET /me', () => {
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual({
       email: 'a@b.com',
-      balance: 0,
-      minted: 0,
-      sent: 0,
-      received: 0,
+      balance_base_units: '0',
+      minted_base_units: '0',
+      sent_base_units: '0',
+      received_base_units: '0',
       wrap_allowed: false,
       solana_wallet: null,
-      srpow_supply_owned: 0,
+      srpow_supply_owned_base_units: '0',
     });
   });
 });
@@ -50,7 +50,7 @@ describe('GET /me — SRPOW fields', () => {
     const r = await t.app.inject({ method: 'GET', url: '/me', cookies: { [SESSION_COOKIE]: session } });
     expect(r.statusCode).toBe(200);
     expect(r.json()).toMatchObject({
-      wrap_allowed: true, solana_wallet: 'WALLET_X', srpow_supply_owned: 0,
+      wrap_allowed: true, solana_wallet: 'WALLET_X', srpow_supply_owned_base_units: '0',
     });
   });
 
