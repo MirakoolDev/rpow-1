@@ -100,7 +100,7 @@ export interface WrapResponse {
   ok: true;
   event_id: string;
   status: 'CONFIRMED';
-  solana_signature: string;
+  solana_signature: string | null;
 }
 
 export interface WrapEvent {

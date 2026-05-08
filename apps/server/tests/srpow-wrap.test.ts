@@ -146,6 +146,25 @@ describe('POST /srpow/wrap — Phase 2 failures', () => {
   });
 });
 
+describe('POST /srpow/wrap — replay of failed wrap', () => {
+  it('idempotency replay of a refunded wrap returns 503 BRIDGE_FAILED', async () => {
+    const t = await makeTestApp({ wrapAllowlistCsv: 'alice@x.io' });
+    cleanup = t.cleanup;
+    await seedUser(t, 'alice@x.io', 'WALLET1', 1, ONE_RPOW);
+    t.bridgeClient.queueResult({ error: 'oops' });
+    const session = signSession({ email: 'alice@x.io' }, 'x'.repeat(32), 60);
+    const payload = { amount_base_units: ONE_RPOW.toString(), idempotency_key: 'k_replay_refund' };
+
+    const r1 = await t.app.inject({ method: 'POST', url: '/srpow/wrap', cookies: { [SESSION_COOKIE]: session }, payload });
+    expect(r1.statusCode).toBe(503);
+
+    // Replay with same params — server should return 503 again, not crash.
+    const r2 = await t.app.inject({ method: 'POST', url: '/srpow/wrap', cookies: { [SESSION_COOKIE]: session }, payload });
+    expect(r2.statusCode).toBe(503);
+    expect(r2.json().status).toBe('REFUNDED');
+  });
+});
+
 describe('GET /srpow/events', () => {
   it('lists current user events newest first', async () => {
     const t = await makeTestApp({ wrapAllowlistCsv: 'alice@x.io' });

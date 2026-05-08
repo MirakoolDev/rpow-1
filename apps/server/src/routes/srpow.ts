@@ -123,7 +123,19 @@ export async function srpowRoutes(app: FastifyInstance) {
     // producer above only writes phase1.existing as a non-null row.
     if ('existing' in phase1) {
       const e = phase1.existing!;
-      return { ok: true, event_id: e.id, status: e.status, solana_signature: e.solana_signature };
+      if (e.status === 'CONFIRMED') {
+        return { ok: true, event_id: e.id, status: 'CONFIRMED' as const, solana_signature: e.solana_signature ?? '' };
+      }
+      if (e.status === 'PENDING') {
+        return reply.code(202).send({ event_id: e.id, status: 'PENDING' as const, message: 'wrap in progress, retry shortly' });
+      }
+      // REFUNDED or FAILED
+      return reply.code(503).send({
+        error: 'BRIDGE_FAILED',
+        event_id: e.id,
+        status: e.status,
+        failure_reason: 'idempotent replay of a previously-failed wrap',
+      });
     }
 
     if ('fresh' in phase1) {

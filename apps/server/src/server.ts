@@ -28,7 +28,11 @@ if (env.SOLANA_RPC_URL && env.SRPOW_MINT_ADDRESS && env.BRIDGE_KEYPAIR_BASE58) {
   console.log('SRPOW disabled: SOLANA_RPC_URL/SRPOW_MINT_ADDRESS/BRIDGE_KEYPAIR_BASE58 not all set');
 }
 
-await reconcilePendingWraps(pool, bridgeClient);
+if (env.SOLANA_RPC_URL && env.SRPOW_MINT_ADDRESS && env.BRIDGE_KEYPAIR_BASE58) {
+  await reconcilePendingWraps(pool, bridgeClient);
+} else {
+  console.log('SRPOW disabled: skipping reconcile worker');
+}
 
 let mailer: Mailer;
 if (process.env.RPOW_TEST_INBOX === 'true') {

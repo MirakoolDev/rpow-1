@@ -57,6 +57,13 @@ export async function phantomRoutes(app: FastifyInstance) {
         return { ok: true, solana_wallet: wallet_address };
       }
 
+      // Block nonce replay AFTER the idempotent same-wallet path: an honest
+      // re-bind of the same wallet still no-ops, but a different-wallet replay
+      // of an already-used nonce is rejected.
+      if (ch.used_at !== null) {
+        return reply.code(400).send({ error: 'NONCE_INVALID', message: 'nonce already used' });
+      }
+
       try {
         await c.query('UPDATE users SET solana_wallet=$1 WHERE email=$2', [wallet_address, s.email]);
         await c.query('UPDATE phantom_challenges SET used_at=now() WHERE nonce=$1', [nonce]);

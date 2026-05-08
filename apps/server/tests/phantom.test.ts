@@ -103,6 +103,26 @@ describe('POST /phantom/bind', () => {
     expect(b.json().solana_wallet).toBe(bs58.encode(kp.publicKey));
   });
 
+  it('rejects a nonce that has already been used', async () => {
+    const { t, session, nonce, message } = await setup();
+    const kp = nacl.sign.keyPair();
+    const sig = nacl.sign.detached(new TextEncoder().encode(message), kp.secretKey);
+    const payload = { nonce, wallet_address: bs58.encode(kp.publicKey), signature_base58: bs58.encode(sig) };
+
+    const a = await t.app.inject({ method: 'POST', url: '/phantom/bind', cookies: { [SESSION_COOKIE]: session }, payload });
+    expect(a.statusCode).toBe(200);
+
+    // Replay the same nonce with a DIFFERENT wallet — should now reject.
+    const otherKp = nacl.sign.keyPair();
+    const otherSig = nacl.sign.detached(new TextEncoder().encode(message), otherKp.secretKey);
+    const r = await t.app.inject({
+      method: 'POST', url: '/phantom/bind', cookies: { [SESSION_COOKIE]: session },
+      payload: { nonce, wallet_address: bs58.encode(otherKp.publicKey), signature_base58: bs58.encode(otherSig) },
+    });
+    expect(r.statusCode).toBe(400);
+    expect(r.json().error).toBe('NONCE_INVALID');
+  });
+
   it('rejects WALLET_TAKEN when a different user already bound the same wallet', async () => {
     const { t, session: aliceSession, nonce, message } = await setup();
     const kp = nacl.sign.keyPair();

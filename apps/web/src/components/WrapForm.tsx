@@ -28,7 +28,8 @@ export function WrapForm({ availableBaseUnits, enabled, onWrapped }: Props) {
       if (BigInt(amount_base_units) <= 0n) throw new Error('amount must be > 0');
       if (BigInt(amount_base_units) > BigInt(availableBaseUnits)) throw new Error('insufficient balance');
       const r = await wrap(amount_base_units);
-      setMsg({ kind: 'ok', text: `Wrapped ${formatRpow(amount_base_units)} RPOW. tx: ${r.solana_signature.slice(0, 8)}…` });
+      const sigSnippet = r.solana_signature ? `${r.solana_signature.slice(0, 8)}…` : '(no tx)';
+      setMsg({ kind: 'ok', text: `Wrapped ${formatRpow(amount_base_units)} RPOW. tx: ${sigSnippet}` });
       setAmount('');
       onWrapped();
     } catch (e: any) {
