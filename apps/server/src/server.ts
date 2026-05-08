@@ -5,6 +5,7 @@ import { ResendMailer, PostmarkMailer, SmtpMailer, FakeMailer, type Mailer } fro
 import { Connection, PublicKey } from '@solana/web3.js';
 import { SolanaBridgeClient, FakeBridgeClient, type BridgeClient, SRPOW_BASE_UNITS_PER_RPOW } from '@rpow/solana-bridge';
 import { loadBridgeKeypair } from './bridge-keys.js';
+import { reconcilePendingWraps } from './srpow-reconcile.js';
 
 const env = parseEnv();
 const pool = createPool(env.DATABASE_URL);
@@ -26,6 +27,8 @@ if (env.SOLANA_RPC_URL && env.SRPOW_MINT_ADDRESS && env.BRIDGE_KEYPAIR_BASE58) {
   bridgeClient = new FakeBridgeClient();
   console.log('SRPOW disabled: SOLANA_RPC_URL/SRPOW_MINT_ADDRESS/BRIDGE_KEYPAIR_BASE58 not all set');
 }
+
+await reconcilePendingWraps(pool, bridgeClient);
 
 let mailer: Mailer;
 if (process.env.RPOW_TEST_INBOX === 'true') {
