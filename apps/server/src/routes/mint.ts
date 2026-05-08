@@ -16,6 +16,10 @@ export async function mintRoutes(app: FastifyInstance) {
     if (!parsed.success) return reply.code(400).send({ error: 'BAD_REQUEST', message: 'invalid body' });
 
     const result = await withTx(app.pool, async (c) => {
+      // Serialize all mint commits on a single advisory lock so the cap check
+      // and INSERT are race-free without resorting to SERIALIZABLE retries.
+      await c.query(`SELECT pg_advisory_xact_lock(hashtext('rpow_mint_supply'))`);
+
       const { rows } = await c.query<{ id: string; nonce_prefix: Buffer; difficulty_bits: number; expires_at: Date; claimed_at: Date | null }>(
         'SELECT id, nonce_prefix, difficulty_bits, expires_at, claimed_at FROM challenges WHERE id=$1 AND user_email=$2 FOR UPDATE',
         [parsed.data.challenge_id, s.email],
@@ -28,6 +32,13 @@ export async function mintRoutes(app: FastifyInstance) {
       const nonce = BigInt(parsed.data.solution_nonce);
       if (!verifySolution(ch.nonce_prefix, nonce, ch.difficulty_bits)) {
         return { error: 'INVALID_SOLUTION' as const, message: 'hash does not meet difficulty' };
+      }
+
+      const supplyRows = await c.query<{ n: number }>(
+        `SELECT count(*)::int AS n FROM tokens WHERE parent_token_id IS NULL`,
+      );
+      if (supplyRows.rows[0]!.n >= app.config.mintMaxSupply) {
+        return { error: 'SUPPLY_EXHAUSTED' as const, message: '21M cap reached' };
       }
 
       await c.query('UPDATE challenges SET claimed_at=now() WHERE id=$1', [ch.id]);
@@ -48,7 +59,7 @@ export async function mintRoutes(app: FastifyInstance) {
     });
 
     if ('error' in result) {
-      const status = result.error === 'CHALLENGE_EXPIRED' ? 410 : 400;
+      const status = result.error === 'CHALLENGE_EXPIRED' || result.error === 'SUPPLY_EXHAUSTED' ? 410 : 400;
       return reply.code(status).send(result);
     }
     return result;
