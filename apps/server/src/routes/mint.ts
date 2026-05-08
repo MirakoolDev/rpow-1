@@ -65,7 +65,7 @@ export async function mintRoutes(app: FastifyInstance) {
       const issuedAt = new Date();
       const ownerHash = createHash('sha256').update(s.email).digest('hex');
       const sig = signTokenPayload(
-        { id: tokenId, owner_email_hash: ownerHash, value: Number(reward), issued_at: issuedAt.toISOString() },
+        { id: tokenId, owner_email_hash: ownerHash, value: reward, issued_at: issuedAt.toISOString() },
         app.config.signingPrivateKeyHex,
       );
       await c.query(

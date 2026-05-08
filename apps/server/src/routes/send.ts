@@ -139,7 +139,7 @@ export async function sendRoutes(app: FastifyInstance) {
           for (const t of picked) {
             const newId = randomUUID();
             const sig = signTokenPayload(
-              { id: newId, owner_email_hash: ownerHash, value: Number(t.value), issued_at: issuedAt.toISOString() },
+              { id: newId, owner_email_hash: ownerHash, value: t.value, issued_at: issuedAt.toISOString() },
               app.config.signingPrivateKeyHex,
             );
             await c.query(`UPDATE tokens SET state='INVALIDATED', invalidated_at=now() WHERE id=$1`, [t.id]);

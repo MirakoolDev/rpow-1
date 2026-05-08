@@ -44,7 +44,7 @@ export async function claimRoutes(app: FastifyInstance) {
       const ownerHash = createHash('sha256').update(pt.recipient_email).digest('hex');
       const newId = randomUUID();
       const sig = signTokenPayload(
-        { id: newId, owner_email_hash: ownerHash, value: Number(BigInt(pt.amount)), issued_at: issuedAt.toISOString() },
+        { id: newId, owner_email_hash: ownerHash, value: BigInt(pt.amount), issued_at: issuedAt.toISOString() },
         app.config.signingPrivateKeyHex,
       );
       await c.query(
