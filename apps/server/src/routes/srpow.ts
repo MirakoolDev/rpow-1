@@ -27,11 +27,12 @@ export async function srpowRoutes(app: FastifyInstance) {
         'SELECT id, amount, status, solana_signature FROM srpow_wrap_events WHERE idempotency_key=$1',
         [idempotency_key],
       );
-      if (dup.rows[0]) {
-        if (dup.rows[0].amount !== amount) {
+      const existing = dup.rows[0];
+      if (existing) {
+        if (existing.amount !== amount) {
           return { error: 'DUP_DIFFERENT_PARAMS' as const };
         }
-        return { existing: dup.rows[0] };
+        return { existing };
       }
 
       const userRow = await c.query<{ solana_wallet: string | null }>(
@@ -73,8 +74,10 @@ export async function srpowRoutes(app: FastifyInstance) {
     }
 
     // Replay path: a previous call already completed Phase 1+2 (or refunded).
+    // The `!` is sound: 'existing' in phase1 was just verified, and the
+    // producer above only writes phase1.existing as a non-null row.
     if ('existing' in phase1) {
-      const e = phase1.existing;
+      const e = phase1.existing!;
       return { ok: true, event_id: e.id, status: e.status, solana_signature: e.solana_signature };
     }
 
