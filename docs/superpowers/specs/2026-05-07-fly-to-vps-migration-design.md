@@ -231,6 +231,29 @@ T+200s  Monitor /health, journalctl, nginx logs, postgres logs for ~30 min.
 4. Pre-prepared smoke-test script (committed to repo before cutover day).
 5. Neon project kept alive for 7 days post-cutover as a frozen reference (don't delete the project until soak passes).
 
+### In-flight mining: no RPOW lost
+
+The challenge/mint design is already cutover-safe because the challenge state lives in the `challenges` table (5-min TTL), not in app memory:
+
+1. `/challenge` writes a row with `id`, `nonce_prefix`, `difficulty_bits`, `expires_at`. Client gets the values back.
+2. Client mines locally (~30s) — pure CPU, no server state changes.
+3. `/mint` re-reads the row `FOR UPDATE`, validates `claimed_at IS NULL`, expiry, and hash; sets `claimed_at`; inserts the token.
+
+A challenge issued pre-cutover is captured in the `pg_dump`, restored on the VPS, and queryable by its UUID. When the miner's `/mint` lands on the new server (after DNS flip + retry), the same row is there waiting — validates, mints, returns the token. **No mined work is wasted as long as the user retries.**
+
+Concrete protections already in code that span servers:
+- `pg_advisory_xact_lock` on the supply check → no race even across server changeover.
+- `FOR UPDATE` on the challenge row → at most one `/mint` succeeds per challenge.
+- `transfers.idempotency_key UNIQUE` and `pending_transfers.claim_token_hash UNIQUE` → no double-spend or double-claim possible.
+
+**Optional mitigation for extra-slow miners on cutover day:** the day of cutover, deploy a one-line change to Fly extending the challenge TTL from 5 min to 15 min:
+
+```ts
+const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+```
+
+Revert post-migration. Costs nothing, prevents the rare case where a challenge issued >4.5 min pre-cutover would expire during the dump/restore window. Decide at impl time whether to bother (~5 lines of plan time).
+
 ### Pre-cutover token-verify check
 
 To prove the signing key carried correctly: take one existing token from Neon (any `token_id` from the `tokens` table), keep its hex/JSON aside. After T+95s on the VPS, hit `POST /verify` (or whatever the verification endpoint is — confirm during impl) with that token. If it verifies, the Ed25519 private key was carried correctly. If it doesn't, **do not flip DNS** — the signing key is wrong and all post-flip user activity will produce tokens incompatible with pre-flip ones.
