@@ -6,12 +6,20 @@ import { randomUUID } from 'node:crypto';
 let cleanup: () => Promise<void> = async () => {};
 afterEach(() => cleanup());
 
-async function seedUser(t: Awaited<ReturnType<typeof makeTestApp>>, email: string, wallet: string, validTokens: number) {
+const ONE_RPOW = 1_000_000_000n; // 10^9 base units = 1 RPOW
+
+async function seedUser(
+  t: Awaited<ReturnType<typeof makeTestApp>>,
+  email: string,
+  wallet: string,
+  validTokens: number,
+  valueBaseUnits: bigint = ONE_RPOW,
+) {
   await t.pool.query(`INSERT INTO users(email, solana_wallet) VALUES($1,$2)`, [email, wallet]);
   for (let i = 0; i < validTokens; i++) {
     await t.pool.query(
-      `INSERT INTO tokens(id, owner_email, value, state, server_sig) VALUES($1,$2,1,'VALID','\\x00')`,
-      [randomUUID(), email],
+      `INSERT INTO tokens(id, owner_email, value, state, server_sig) VALUES($1,$2,$3,'VALID','\\x00')`,
+      [randomUUID(), email, valueBaseUnits.toString()],
     );
   }
 }
@@ -25,7 +33,7 @@ describe('POST /srpow/wrap — Phase 1', () => {
 
     const r = await t.app.inject({
       method: 'POST', url: '/srpow/wrap', cookies: { [SESSION_COOKIE]: session },
-      payload: { amount: 1, idempotency_key: 'k1234567' },
+      payload: { amount_base_units: ONE_RPOW.toString(), idempotency_key: 'k1234567' },
     });
     expect(r.statusCode).toBe(403);
     expect(r.json().error).toBe('FORBIDDEN');
@@ -38,7 +46,7 @@ describe('POST /srpow/wrap — Phase 1', () => {
     const session = signSession({ email: 'alice@x.io' }, 'x'.repeat(32), 60);
     const r = await t.app.inject({
       method: 'POST', url: '/srpow/wrap', cookies: { [SESSION_COOKIE]: session },
-      payload: { amount: 1, idempotency_key: 'k1234567' },
+      payload: { amount_base_units: ONE_RPOW.toString(), idempotency_key: 'k1234567' },
     });
     expect(r.statusCode).toBe(400);
     expect(r.json().error).toBe('NO_WALLET_BOUND');
@@ -51,10 +59,24 @@ describe('POST /srpow/wrap — Phase 1', () => {
     const session = signSession({ email: 'alice@x.io' }, 'x'.repeat(32), 60);
     const r = await t.app.inject({
       method: 'POST', url: '/srpow/wrap', cookies: { [SESSION_COOKIE]: session },
-      payload: { amount: 5, idempotency_key: 'k1234567' },
+      payload: { amount_base_units: (5n * ONE_RPOW).toString(), idempotency_key: 'k1234567' },
     });
     expect(r.statusCode).toBe(400);
     expect(r.json().error).toBe('INSUFFICIENT_BALANCE');
+  });
+
+  it('returns 400 EXACT_SUM_REQUIRED when no token combo equals target', async () => {
+    const t = await makeTestApp({ wrapAllowlistCsv: 'alice@x.io' });
+    cleanup = t.cleanup;
+    // Alice has two 1-RPOW tokens; she wants to wrap 0.5 RPOW.
+    await seedUser(t, 'alice@x.io', 'WALLET1', 2);
+    const session = signSession({ email: 'alice@x.io' }, 'x'.repeat(32), 60);
+    const r = await t.app.inject({
+      method: 'POST', url: '/srpow/wrap', cookies: { [SESSION_COOKIE]: session },
+      payload: { amount_base_units: (ONE_RPOW / 2n).toString(), idempotency_key: 'k_exact_1' },
+    });
+    expect(r.statusCode).toBe(400);
+    expect(r.json().error).toBe('EXACT_SUM_REQUIRED');
   });
 
   it('replays a same-key + same-params request without double-locking', async () => {
@@ -63,7 +85,7 @@ describe('POST /srpow/wrap — Phase 1', () => {
     await seedUser(t, 'alice@x.io', 'WALLET1', 5);
     t.bridgeClient.queueResult({ signature: 'sig_1' });   // for first call's Phase 2
     const session = signSession({ email: 'alice@x.io' }, 'x'.repeat(32), 60);
-    const payload = { amount: 1, idempotency_key: 'k1234567' };
+    const payload = { amount_base_units: ONE_RPOW.toString(), idempotency_key: 'k1234567' };
 
     const r1 = await t.app.inject({ method: 'POST', url: '/srpow/wrap', cookies: { [SESSION_COOKIE]: session }, payload });
     expect(r1.statusCode).toBe(200);
@@ -85,11 +107,11 @@ describe('POST /srpow/wrap — Phase 1', () => {
 
     await t.app.inject({
       method: 'POST', url: '/srpow/wrap', cookies: { [SESSION_COOKIE]: session },
-      payload: { amount: 1, idempotency_key: 'k1234567' },
+      payload: { amount_base_units: ONE_RPOW.toString(), idempotency_key: 'k1234567' },
     });
     const r = await t.app.inject({
       method: 'POST', url: '/srpow/wrap', cookies: { [SESSION_COOKIE]: session },
-      payload: { amount: 2, idempotency_key: 'k1234567' },
+      payload: { amount_base_units: (2n * ONE_RPOW).toString(), idempotency_key: 'k1234567' },
     });
     expect(r.statusCode).toBe(409);
   });
@@ -105,7 +127,7 @@ describe('POST /srpow/wrap — Phase 2 failures', () => {
 
     const r = await t.app.inject({
       method: 'POST', url: '/srpow/wrap', cookies: { [SESSION_COOKIE]: session },
-      payload: { amount: 2, idempotency_key: 'k_refund_1' },
+      payload: { amount_base_units: (2n * ONE_RPOW).toString(), idempotency_key: 'k_refund_1' },
     });
 
     expect(r.statusCode).toBe(503);
@@ -134,17 +156,19 @@ describe('GET /srpow/events', () => {
     t.bridgeClient.queueResult({ error: 'oops' });
 
     await t.app.inject({ method: 'POST', url: '/srpow/wrap', cookies: { [SESSION_COOKIE]: session },
-      payload: { amount: 1, idempotency_key: 'k_aaaaaa' } });
+      payload: { amount_base_units: ONE_RPOW.toString(), idempotency_key: 'k_aaaaaa' } });
     await t.app.inject({ method: 'POST', url: '/srpow/wrap', cookies: { [SESSION_COOKIE]: session },
-      payload: { amount: 1, idempotency_key: 'k_bbbbbb' } });
+      payload: { amount_base_units: ONE_RPOW.toString(), idempotency_key: 'k_bbbbbb' } });
 
     const r = await t.app.inject({ method: 'GET', url: '/srpow/events', cookies: { [SESSION_COOKIE]: session } });
     expect(r.statusCode).toBe(200);
-    const list = r.json() as Array<{status: string; amount: number}>;
+    const list = r.json() as Array<{status: string; amount_base_units: string}>;
     expect(list.length).toBe(2);
     // newest first
     expect(list[0].status).toBe('REFUNDED');
     expect(list[1].status).toBe('CONFIRMED');
+    expect(list[0].amount_base_units).toBe(ONE_RPOW.toString());
+    expect(list[1].amount_base_units).toBe(ONE_RPOW.toString());
   });
 
   it('does not leak other users events', async () => {
@@ -155,7 +179,7 @@ describe('GET /srpow/events', () => {
     t.bridgeClient.queueResult({ signature: 'sig_a' });
     const aliceSession = signSession({ email: 'alice@x.io' }, 'x'.repeat(32), 60);
     await t.app.inject({ method: 'POST', url: '/srpow/wrap', cookies: { [SESSION_COOKIE]: aliceSession },
-      payload: { amount: 1, idempotency_key: 'k_aaaaaa' } });
+      payload: { amount_base_units: ONE_RPOW.toString(), idempotency_key: 'k_aaaaaa' } });
 
     const bobSession = signSession({ email: 'bob@x.io' }, 'x'.repeat(32), 60);
     const r = await t.app.inject({ method: 'GET', url: '/srpow/events', cookies: { [SESSION_COOKIE]: bobSession } });

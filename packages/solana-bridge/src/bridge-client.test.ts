@@ -5,16 +5,16 @@ describe('FakeBridgeClient', () => {
   it('mintTo returns the queued signature and records the call', async () => {
     const c = new FakeBridgeClient();
     c.queueResult({ signature: 'fake_sig_1' });
-    const r = await c.mintTo({ recipientWallet: 'WALLET1', amount: 3 });
+    const r = await c.mintTo({ recipientWallet: 'WALLET1', amountBaseUnits: 3_000_000_000n });
     expect(r.status).toBe('confirmed');
     expect(r.signature).toBe('fake_sig_1');
-    expect(c.calls).toEqual([{ recipientWallet: 'WALLET1', amount: 3 }]);
+    expect(c.calls).toEqual([{ recipientWallet: 'WALLET1', amountBaseUnits: 3_000_000_000n }]);
   });
 
   it('queues a failure result', async () => {
     const c = new FakeBridgeClient();
     c.queueResult({ error: 'rpc_unavailable' });
-    const r = await c.mintTo({ recipientWallet: 'WALLET1', amount: 1 });
+    const r = await c.mintTo({ recipientWallet: 'WALLET1', amountBaseUnits: 1_000_000_000n });
     expect(r.status).toBe('failed');
     if (r.status !== 'failed') throw new Error('expected failed');
     expect(r.failureReason).toBe('rpc_unavailable');
@@ -22,7 +22,7 @@ describe('FakeBridgeClient', () => {
 
   it('throws if no result queued', async () => {
     const c = new FakeBridgeClient();
-    await expect(c.mintTo({ recipientWallet: 'W', amount: 1 })).rejects.toThrow(/no result queued/);
+    await expect(c.mintTo({ recipientWallet: 'W', amountBaseUnits: 1_000_000_000n })).rejects.toThrow(/no result queued/);
   });
 
   it('getSignatureStatus returns queued status', async () => {

@@ -5,7 +5,7 @@ import {
   getOrCreateAssociatedTokenAccount, mintTo as splMintTo,
 } from '@solana/spl-token';
 
-export interface MintToArgs { recipientWallet: string; amount: number }
+export interface MintToArgs { recipientWallet: string; amountBaseUnits: bigint }
 export type MintToResult =
   | { status: 'confirmed'; signature: string }
   | { status: 'failed'; signature: string | null; failureReason: string };
@@ -80,7 +80,7 @@ export interface SolanaBridgeClientOptions {
 export class SolanaBridgeClient implements BridgeClient {
   constructor(private opts: SolanaBridgeClientOptions) {}
 
-  async mintTo({ recipientWallet, amount }: MintToArgs): Promise<MintToResult> {
+  async mintTo({ recipientWallet, amountBaseUnits }: MintToArgs): Promise<MintToResult> {
     // Validate recipient outside the try so an invalid pubkey throws (programmer
     // error) rather than being silently absorbed into a refund (RPC failure).
     const recipient = new PublicKey(recipientWallet);
@@ -89,10 +89,13 @@ export class SolanaBridgeClient implements BridgeClient {
         this.opts.connection, this.opts.bridge, this.opts.mint, recipient,
         false, this.opts.commitment,
       );
-      const baseUnits = BigInt(amount) * this.opts.baseUnitsPerToken;
+      // amountBaseUnits is already in SRPOW base units (10^9 == 1 SRPOW); the
+      // rpow side now also denominates in base units, so we mint 1:1 with no
+      // additional scaling. opts.baseUnitsPerToken is retained for backwards
+      // compatibility with the constructor call site but is no longer used.
       const sig = await splMintTo(
         this.opts.connection, this.opts.bridge, this.opts.mint, ata.address,
-        this.opts.bridge, baseUnits, [], { commitment: this.opts.commitment },
+        this.opts.bridge, amountBaseUnits, [], { commitment: this.opts.commitment },
       );
       return { status: 'confirmed', signature: sig };
     } catch (e: any) {

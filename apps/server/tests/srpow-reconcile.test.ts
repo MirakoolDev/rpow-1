@@ -7,21 +7,25 @@ import { reconcilePendingWraps } from '../src/srpow-reconcile.js';
 let cleanup: () => Promise<void> = async () => {};
 afterEach(() => cleanup());
 
+const ONE_RPOW = 1_000_000_000n;
+
 async function seed(t: Awaited<ReturnType<typeof makeTestApp>>, opts: {
   signature: string | null; tokenIds: string[];
 }) {
   await t.pool.query(`INSERT INTO users(email, solana_wallet) VALUES('alice@x.io','W')`);
   const eventId = randomUUID();
+  // amount is now BIGINT base units; one locked token == 1 RPOW == 10^9 base units.
+  const amountBaseUnits = (BigInt(opts.tokenIds.length) * ONE_RPOW).toString();
   await t.pool.query(
     `INSERT INTO srpow_wrap_events(id, user_email, solana_wallet, amount, direction, status, idempotency_key, solana_signature)
      VALUES($1,'alice@x.io','W',$2,'WRAP','PENDING',$3,$4)`,
-    [eventId, opts.tokenIds.length, `idem-${eventId}`, opts.signature],
+    [eventId, amountBaseUnits, `idem-${eventId}`, opts.signature],
   );
   for (const tid of opts.tokenIds) {
     await t.pool.query(
       `INSERT INTO tokens(id, owner_email, value, state, server_sig, wrap_event_id)
-       VALUES($1,'alice@x.io',1,'LOCKED_FOR_BRIDGE','\\x00',$2)`,
-      [tid, eventId],
+       VALUES($1,'alice@x.io',$2,'LOCKED_FOR_BRIDGE','\\x00',$3)`,
+      [tid, ONE_RPOW.toString(), eventId],
     );
   }
   return eventId;

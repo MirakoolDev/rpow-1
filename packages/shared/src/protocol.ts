@@ -106,7 +106,7 @@ export interface WrapResponse {
 export interface WrapEvent {
   event_id: string;
   direction: 'WRAP' | 'UNWRAP';
-  amount: number;
+  amount_base_units: string;
   status: 'PENDING' | 'CONFIRMED' | 'FAILED' | 'REFUNDED';
   solana_signature: string | null;
   failure_reason: string | null;
