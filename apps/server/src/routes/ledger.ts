@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { difficultyForSupply, epochInfo } from '../schedule.js';
 
 export async function ledgerRoutes(app: FastifyInstance) {
   app.get('/ledger', async () => {
@@ -8,12 +9,29 @@ export async function ledgerRoutes(app: FastifyInstance) {
       app.pool.query<{ n: number }>(`SELECT count(*)::int AS n FROM tokens WHERE state='VALID'`),
       app.pool.query<{ n: number }>(`SELECT count(*)::int AS n FROM users`),
     ]);
+    const totalMinted = minted[0]!.n;
+    const opts = {
+      baseBits: app.config.difficultyBits,
+      epochSize: app.config.mintEpochSize,
+      maxSupply: app.config.mintMaxSupply,
+    };
+    const scheduledBits = difficultyForSupply(totalMinted, opts);
+    const currentDifficultyBits = Math.max(app.config.difficultyFloor, scheduledBits);
+    const info = epochInfo(totalMinted, opts);
+
     return {
-      total_minted: minted[0]!.n,
+      total_minted: totalMinted,
       total_transferred: transferred[0]!.n,
       circulating_supply: circ[0]!.n,
-      current_difficulty_bits: Math.max(app.config.difficultyFloor, app.config.difficultyBits),
+      current_difficulty_bits: currentDifficultyBits,
       user_count: users[0]!.n,
+      max_supply: app.config.mintMaxSupply,
+      epoch: info.epoch,
+      epoch_size: app.config.mintEpochSize,
+      next_milestone_at: info.nextMilestoneAt,
+      coins_until_next_milestone: info.coinsToNext,
+      next_difficulty_bits: info.nextDifficultyBits,
+      is_capped: info.isCapped,
     };
   });
 }
