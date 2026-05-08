@@ -7,7 +7,8 @@
     "build": "tsc -b",
     "start": "node dist/server.js",
     "dev": "tsx watch src/server.ts",
-    "test": "vitest run"
+    "test": "vitest run",
+    "create-srpow-mint": "tsx scripts/create-srpow-mint.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^9.3.1",
