@@ -1,0 +1,24 @@
+[Unit]
+Description=rpow API server
+After=network.target postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=simple
+User=rpow
+Group=rpow
+WorkingDirectory=/opt/rpow/repo
+EnvironmentFile=/etc/rpow/server.env
+ExecStart=/usr/bin/node apps/server/dist/server.js
+Restart=on-failure
+RestartSec=2
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/rpow/repo
+PrivateTmp=true
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
