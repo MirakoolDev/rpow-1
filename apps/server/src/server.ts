@@ -1,7 +1,7 @@
 import { parseEnv } from './env.js';
 import { createPool, runMigrations } from './db.js';
 import { buildApp } from './buildApp.js';
-import { ResendMailer, PostmarkMailer, SmtpMailer, FakeMailer, type Mailer } from './mailer.js';
+import { ResendMailer, PostmarkMailer, SmtpMailer, FakeMailer, ThrottledMailer, type Mailer } from './mailer.js';
 
 const env = parseEnv();
 const pool = createPool(env.DATABASE_URL);
@@ -27,6 +27,17 @@ if (process.env.RPOW_TEST_INBOX === 'true') {
   );
 } else {
   mailer = new ResendMailer(env.RESEND_API_KEY!, env.EMAIL_FROM);
+}
+
+// Wrap the chosen provider with an outbound rate limiter so we never exceed
+// the provider's per-second cap (Resend default is 5/s). FakeMailer used in
+// RPOW_TEST_INBOX mode is left untouched so dev consoles see links instantly.
+if (process.env.RPOW_TEST_INBOX !== 'true') {
+  mailer = new ThrottledMailer(mailer, {
+    rps: env.MAIL_THROTTLE_RPS,
+    maxQueue: env.MAIL_THROTTLE_MAX_QUEUE,
+  });
+  console.log(`mail throttle: ${env.MAIL_THROTTLE_RPS} req/s, queue cap ${env.MAIL_THROTTLE_MAX_QUEUE}`);
 }
 
 const app = await buildApp({

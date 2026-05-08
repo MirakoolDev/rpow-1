@@ -23,6 +23,8 @@ const Schema = z.object({
   MINT_MAX_SUPPLY: z.coerce.number().int().positive().default(21_000_000),
   WEB_ORIGIN: z.string().url().default('http://localhost:5173'),
   TURNSTILE_SECRET: z.string().optional(),
+  MAIL_THROTTLE_RPS: z.coerce.number().positive().default(4),
+  MAIL_THROTTLE_MAX_QUEUE: z.coerce.number().int().positive().default(200),
 }).superRefine((v, ctx) => {
   if (v.MAILER === 'resend' && !v.RESEND_API_KEY) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['RESEND_API_KEY'], message: 'required when MAILER=resend' });

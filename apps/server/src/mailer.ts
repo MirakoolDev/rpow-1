@@ -81,6 +81,50 @@ export class SmtpMailer implements Mailer {
   }
 }
 
+// Outbound rate limiter for mail providers with hard per-second caps (e.g.
+// Resend's default 5/s). Wraps any Mailer; paces send() at <= rps. If more
+// than maxQueue calls are waiting, new send() throws ThrottleQueueFullError
+// so the route handler can return 429 instead of hanging.
+//
+// Scheduler: monotonic-next-slot. Each send() reserves slot = max(now, nextAt),
+// then advances nextAt by 1000/rps. Concurrent calls naturally serialize on
+// the shared nextAt. queueDepth is the count of in-flight waiters (those that
+// have reserved a slot but not yet returned from inner.send).
+export class ThrottleQueueFullError extends Error {
+  statusCode = 429;
+  constructor() { super('outbound mail queue is full, retry in a moment'); }
+}
+
+export class ThrottledMailer implements Mailer {
+  private nextAllowedAt = 0;
+  private queueDepth = 0;
+  private readonly intervalMs: number;
+  constructor(
+    private inner: Mailer,
+    private opts: { rps: number; maxQueue: number },
+  ) {
+    if (opts.rps <= 0) throw new Error('ThrottledMailer: rps must be > 0');
+    if (opts.maxQueue <= 0) throw new Error('ThrottledMailer: maxQueue must be > 0');
+    this.intervalMs = 1000 / opts.rps;
+  }
+  async send(a: SendArgs): Promise<void> {
+    if (this.queueDepth >= this.opts.maxQueue) {
+      throw new ThrottleQueueFullError();
+    }
+    this.queueDepth++;
+    try {
+      const now = Date.now();
+      const slot = Math.max(now, this.nextAllowedAt);
+      this.nextAllowedAt = slot + this.intervalMs;
+      const wait = slot - now;
+      if (wait > 0) await new Promise(r => setTimeout(r, wait));
+      await this.inner.send(a);
+    } finally {
+      this.queueDepth--;
+    }
+  }
+}
+
 export class FakeMailer implements Mailer {
   outbox: SendArgs[] = [];
   async send(a: SendArgs): Promise<void> { this.outbox.push(a); }
