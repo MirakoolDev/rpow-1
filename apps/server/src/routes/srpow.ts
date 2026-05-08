@@ -113,4 +113,41 @@ export async function srpowRoutes(app: FastifyInstance) {
       });
     }
   });
+
+  app.get('/srpow/events', async (req, reply) => {
+    const s = readSession(req as any, app.config.sessionSecret);
+    if (!s) return reply.code(401).send({ error: 'UNAUTHORIZED', message: 'login required' });
+    const { rows } = await app.pool.query(
+      `SELECT id, direction, amount, status, solana_signature, failure_reason, created_at, updated_at
+       FROM srpow_wrap_events WHERE user_email=$1 ORDER BY created_at DESC LIMIT 100`,
+      [s.email],
+    );
+    return rows.map(r => ({
+      event_id: r.id,
+      direction: r.direction,
+      amount: r.amount,
+      status: r.status,
+      solana_signature: r.solana_signature,
+      failure_reason: r.failure_reason,
+      created_at: r.created_at,
+      updated_at: r.updated_at,
+    }));
+  });
+
+  app.get<{ Params: { id: string } }>('/srpow/events/:id', async (req, reply) => {
+    const s = readSession(req as any, app.config.sessionSecret);
+    if (!s) return reply.code(401).send({ error: 'UNAUTHORIZED', message: 'login required' });
+    const { rows } = await app.pool.query(
+      `SELECT id, direction, amount, status, solana_signature, failure_reason, created_at, updated_at
+       FROM srpow_wrap_events WHERE id=$1 AND user_email=$2`,
+      [req.params.id, s.email],
+    );
+    if (!rows[0]) return reply.code(404).send({ error: 'NOT_FOUND', message: 'event not found' });
+    const r = rows[0];
+    return {
+      event_id: r.id, direction: r.direction, amount: r.amount, status: r.status,
+      solana_signature: r.solana_signature, failure_reason: r.failure_reason,
+      created_at: r.created_at, updated_at: r.updated_at,
+    };
+  });
 }

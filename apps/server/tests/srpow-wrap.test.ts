@@ -123,3 +123,43 @@ describe('POST /srpow/wrap — Phase 2 failures', () => {
     expect(ev.rows[0].failure_reason).toBe('rpc_unavailable');
   });
 });
+
+describe('GET /srpow/events', () => {
+  it('lists current user events newest first', async () => {
+    const t = await makeTestApp({ wrapAllowlistCsv: 'alice@x.io' });
+    cleanup = t.cleanup;
+    await seedUser(t, 'alice@x.io', 'WALLET1', 5);
+    const session = signSession({ email: 'alice@x.io' }, 'x'.repeat(32), 60);
+    t.bridgeClient.queueResult({ signature: 'sig_a' });
+    t.bridgeClient.queueResult({ error: 'oops' });
+
+    await t.app.inject({ method: 'POST', url: '/srpow/wrap', cookies: { [SESSION_COOKIE]: session },
+      payload: { amount: 1, idempotency_key: 'k_aaaaaa' } });
+    await t.app.inject({ method: 'POST', url: '/srpow/wrap', cookies: { [SESSION_COOKIE]: session },
+      payload: { amount: 1, idempotency_key: 'k_bbbbbb' } });
+
+    const r = await t.app.inject({ method: 'GET', url: '/srpow/events', cookies: { [SESSION_COOKIE]: session } });
+    expect(r.statusCode).toBe(200);
+    const list = r.json() as Array<{status: string; amount: number}>;
+    expect(list.length).toBe(2);
+    // newest first
+    expect(list[0].status).toBe('REFUNDED');
+    expect(list[1].status).toBe('CONFIRMED');
+  });
+
+  it('does not leak other users events', async () => {
+    const t = await makeTestApp({ wrapAllowlistCsv: 'alice@x.io,bob@x.io' });
+    cleanup = t.cleanup;
+    await seedUser(t, 'alice@x.io', 'WALLETA', 1);
+    await seedUser(t, 'bob@x.io', 'WALLETB', 1);
+    t.bridgeClient.queueResult({ signature: 'sig_a' });
+    const aliceSession = signSession({ email: 'alice@x.io' }, 'x'.repeat(32), 60);
+    await t.app.inject({ method: 'POST', url: '/srpow/wrap', cookies: { [SESSION_COOKIE]: aliceSession },
+      payload: { amount: 1, idempotency_key: 'k_aaaaaa' } });
+
+    const bobSession = signSession({ email: 'bob@x.io' }, 'x'.repeat(32), 60);
+    const r = await t.app.inject({ method: 'GET', url: '/srpow/events', cookies: { [SESSION_COOKIE]: bobSession } });
+    expect(r.statusCode).toBe(200);
+    expect(r.json()).toEqual([]);
+  });
+});
