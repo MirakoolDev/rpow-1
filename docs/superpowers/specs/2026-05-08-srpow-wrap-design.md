@@ -349,16 +349,21 @@ Operator action **after** running this script: open `https://streamflow.finance`
 4. Run `create-srpow-mint.ts` (default mode) with `BRIDGE_KEYPAIR_BASE58` and `SOLANA_RPC_URL` in env → record `SRPOW_MINT_ADDRESS`. Verify on Solscan: decimals 9, freeze authority null, mint authority = bridge pubkey, supply 0.
 5. Run `mint-satoshi-allocation.ts` with `SATOSHI_RECIPIENT_PUBKEY=DG2S4KC3GFFVYGipSZeHDYoWyU8dhkeUqW2bvZcy8DZo` (and `BRIDGE_KEYPAIR_BASE58`, `SOLANA_RPC_URL`, `SRPOW_MINT_ADDRESS` in env). Verify on Solscan: SRPOW supply = 1,100,000.000000000.
 6. Open `https://streamflow.finance`, connect the recipient wallet, create a 1-year linear-vesting stream for the 1.1M SRPOW. (Operator action — not scripted.)
-7. **Update VPS env: change `MINT_MAX_SUPPLY=19900000`** in `/etc/rpow/server.env` (= 21M − 1.1M satoshi allocation).
-8. Set the rest of the VPS env (`/etc/rpow/server.env`):
+7. **Token metadata:**
+   1. Upload `apps/web/public/srpow-logo.png` to Arweave (via `irys` CLI paid by bridge keypair, or via app.ardrive.io). Record the Arweave image URL.
+   2. Edit `apps/web/public/srpow-token-metadata.template.json`, replace `REPLACE_WITH_ARWEAVE_IMAGE_URL` with the URL from the previous step.
+   3. Upload that JSON file to Arweave the same way. Record the Arweave metadata URL.
+   4. Run `set-srpow-metadata.ts` with `SRPOW_METADATA_URI=<Arweave metadata URL>` (plus the existing env). Verify on Solscan that `https://solscan.io/token/<SRPOW_MINT_ADDRESS>` now shows the SRPOW name, symbol, and logo.
+8. **Update VPS env: change `MINT_MAX_SUPPLY=19900000`** in `/etc/rpow/server.env` (= 21M − 1.1M satoshi allocation).
+9. Set the rest of the VPS env (`/etc/rpow/server.env`):
    - `SOLANA_RPC_URL=https://...`
    - `SRPOW_MINT_ADDRESS=<from step 4>`
    - `BRIDGE_KEYPAIR_BASE58=<from step 2>`
    - `WRAP_ALLOWED_EMAILS=frk314@gmail.com`
    - `SRPOW_COMMITMENT=confirmed`
-9. Push `srpow-wrap` branch to `main`, run RUNBOOK deploy command, restart `rpow-server`. Migration `007` runs on startup; reconcile worker runs once.
-10. Pilot test as `frk314@gmail.com`: bind Phantom, wrap 1 RPOW, verify mint tx on Solscan, verify SRPOW shows up in Phantom.
-11. Soak time before broadening the allowlist. No deadline.
+10. Push `srpow-wrap` branch to `main`, run RUNBOOK deploy command, restart `rpow-server`. Migration `007` runs on startup; reconcile worker runs once.
+11. Pilot test as `frk314@gmail.com`: bind Phantom, wrap 1 RPOW, verify mint tx on Solscan, verify SRPOW shows up in Phantom **with the correct name, symbol, and logo**.
+12. Soak time before broadening the allowlist. No deadline.
 
 ## Operational notes
 
