@@ -2,6 +2,7 @@ const { Worker, isMainThread, parentPort } = require('worker_threads');
 const crypto = require('crypto');
 const os = require('os');
 const readline = require('readline');
+const https = require('https');
 
 const API_BASE = 'https://api.rpow2.com';
 
@@ -70,34 +71,51 @@ if (!isMainThread) {
 
   let sessionMinted = 0;
   let lastTokenId = '';
-  let dashboardTimer = null;
 
-  async function apiFetch(method, path, body = null, extraHeaders = {}) {
-    const options = {
-      method,
-      headers: { 
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Origin': 'https://rpow2.com',
-        'Referer': 'https://rpow2.com/',
-        'Accept': 'application/json, text/plain, */*',
-        'Accept-Language': 'en-US,en;q=0.9',
-        ...extraHeaders 
+  function apiFetch(method, path, body = null, extraHeaders = {}) {
+    return new Promise((resolve, reject) => {
+      const url = new URL(API_BASE + path);
+      const options = { 
+        method, 
+        headers: { 
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Origin': 'https://rpow2.com',
+          'Referer': 'https://rpow2.com/',
+          'Accept': 'application/json, text/plain, */*',
+          'Accept-Language': 'en-US,en;q=0.9',
+          ...extraHeaders 
+        } 
+      };
+      let bodyData = null;
+      if (body) {
+        bodyData = JSON.stringify(body);
+        options.headers['Content-Type'] = 'application/json';
+        options.headers['Content-Length'] = Buffer.byteLength(bodyData);
       }
-    };
-    if (body) {
-      options.headers['Content-Type'] = 'application/json';
-      options.body = JSON.stringify(body);
-    }
-    if (sessionCookie) {
-      options.headers['Cookie'] = sessionCookie;
-    }
-    const res = await fetch(API_BASE + path, options);
-    return res;
+      if (sessionCookie) {
+        options.headers['Cookie'] = sessionCookie;
+      }
+      const req = https.request(url, options, (res) => {
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => {
+          resolve({
+            ok: res.statusCode >= 200 && res.statusCode < 300,
+            status: res.statusCode,
+            text: async () => data,
+            json: async () => JSON.parse(data)
+          });
+        });
+      });
+      req.on('error', reject);
+      if (bodyData) req.write(bodyData);
+      req.end();
+    });
   }
 
   async function login() {
     console.clear();
-    console.log("=== rpow2 PC Miner ===");
+    console.log("=== rpow2 PC Miner (Linux) ===");
     console.log("1) Login via Email (Magic Link)");
     console.log("2) Bypass Captcha (Paste Session Cookie)");
     
@@ -106,8 +124,9 @@ if (!isMainThread) {
     if (choice.trim() === '2') {
       console.log("\nTo get your cookie:");
       console.log("1. Login to the website in your browser");
-      console.log("2. Open Developer Tools (F12) -> Application -> Cookies");
-      console.log("3. Copy the value of the 'rpow_session' cookie");
+      console.log("2. Open Developer Tools (F12) -> Network");
+      console.log("3. Click any request to api.rpow2.com, go to Headers");
+      console.log("4. Find the Cookie header and copy the rpow_session value");
       
       const cookieValue = await ask("\nPaste rpow_session value: ");
       if (!cookieValue) {
@@ -137,8 +156,23 @@ if (!isMainThread) {
     }
 
     console.log("Verifying token...");
-    const verifyRes = await fetch(API_BASE + `/auth/verify?token=${tokenMatch[1]}`, { redirect: 'manual' });
-    const setCookie = verifyRes.headers.get('set-cookie');
+    const setCookie = await new Promise((resolve, reject) => {
+      const url = new URL(API_BASE + `/auth/verify?token=${tokenMatch[1]}`);
+      const req = https.request(url, { 
+        method: 'GET',
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Referer': 'https://rpow2.com/'
+        }
+      }, (res) => {
+        let c = res.headers['set-cookie'];
+        if (Array.isArray(c)) c = c[0];
+        resolve(c);
+      });
+      req.on('error', reject);
+      req.end();
+    });
+
     if (!setCookie) {
       console.error("Failed to login, no session cookie returned.");
       process.exit(1);
