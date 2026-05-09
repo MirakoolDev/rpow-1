@@ -3,7 +3,7 @@ const crypto = require('crypto');
 const os = require('os');
 const readline = require('readline');
 
-const API_BASE = 'https://api.rpow3.com';
+const API_BASE = 'https://api.rpow2.com';
 
 function trailingZeroBits(buf) {
   let count = 0;
