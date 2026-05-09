@@ -1,43 +1,54 @@
-# rpow2
+#This is a fork of RPOW2
 
-> A tribute to the original RPOW by Hal Finney.
+It contains a PC miner of RPOW; A faithful modern recreation of Hal Finney's [Reusable Proofs of Work](https://nakamotoinstitute.org/finney/rpow/) (2004). Magic-link auth, hashcash mining (~30s on a modern MacBook), Ed25519-signed tokens, email-keyed transfers, public ledger.
 
-A faithful modern recreation of Hal Finney's [Reusable Proofs of Work](https://nakamotoinstitute.org/finney/rpow/) (2004). Magic-link auth, hashcash mining (~30s on a modern MacBook), Ed25519-signed tokens, email-keyed transfers, public ledger.
+Here is a complete README draft for your new GitHub repository. You can copy and paste this directly into your `README.md` file!
 
-## Local dev
+***
 
-Requires Node 22 and Docker.
 
-```bash
-docker run --rm -d --name rpow-pg -e POSTGRES_PASSWORD=p -p 55432:5432 postgres:16
-npm install
-npm run build --workspace @rpow/shared
-npm test
-```
 
-To run the stack with low difficulty for hands-on testing:
+A multi-threaded PC miner for the **RPOW2 (Reusable Proofs of Work)** project. 
 
-```bash
-# In one terminal
-DATABASE_URL=postgres://postgres:p@localhost:55432/postgres \
-RESEND_API_KEY=re_test EMAIL_FROM='rpow2 <no-reply@rpow2.com>' \
-SESSION_SECRET=$(openssl rand -hex 32) \
-MAGIC_LINK_BASE_URL=http://localhost:8080 WEB_ORIGIN=http://localhost:5173 \
-DIFFICULTY_BITS=20 DIFFICULTY_FLOOR=8 \
-RPOW_TEST_INBOX=true \
-$(node -e 'import("./apps/server/dist/signing.js").then(({generateKeypair})=>{const k=generateKeypair(); console.log("RPOW_SIGNING_PRIVATE_KEY_HEX="+k.privateHex+" RPOW_SIGNING_PUBLIC_KEY_HEX="+k.publicHex);})') \
-npm --workspace @rpow/server run dev
+While the official RPOW2 web client relies on a single-threaded WebAssembly worker in your browser, this standalone Node.js script automatically detects your CPU cores and spawns dedicated worker threads to utilize **100% of your CPU**. This allows you to mine tokens significantly faster than the browser.
 
-# In another terminal
-npm --workspace @rpow/web run dev
-```
+## Features
+- **🚀 Max Performance:** Uses Node.js `worker_threads` to max out your CPU.
+- **🪶 Zero Dependencies:** Built entirely using native Node.js libraries (`crypto`, `os`, `worker_threads`). No `node_modules` required!
+- **🔐 Secure Login:** Authenticates securely by requesting and verifying a magic link straight to your email.
+- **🔄 Auto-Fetch:** Automatically fetches your wallet balance in the background after every successful mint.
 
-## Deploy
+## Prerequisites
+All you need is **Node.js v18.0.0 or higher** installed on your system.
 
-- Server: Fly.io (`api.rpow2.com`)
-- Web: Netlify (`rpow2.com`)
-- DB: Neon Postgres (serverless)
-- Email: Resend
-- DNS: GoDaddy (registrar)
+## How to Run
 
-See `docs/RUNBOOK.md` for operator instructions.
+1. Clone this repository or download the `pc_miner.js` file.
+2. Open your terminal in the folder containing the script.
+3. Run the following command:
+   ```bash
+   node pc_miner.js
+   ```
+4. Enter your email when prompted.
+5. Check your email for the magic link, paste the URL into the terminal, and watch it mine!
+
+## Creating a Standalone Executable (Optional)
+
+If you want to run this on machines without installing Node.js, you can compile it into a standalone executable (`.exe` for Windows, or binaries for Linux/macOS) using `pkg`.
+
+1. Install `pkg` globally:
+   ```bash
+   npm install -g pkg
+   ```
+2. Compile the script:
+   **For Windows:**
+   ```bash
+   pkg pc_miner.js --targets node18-win-x64 --output rpow-miner.exe
+   ```
+   **For Linux:**
+   ```bash
+   pkg pc_miner.js --targets node18-linux-x64 --output rpow-miner-linux
+   ```
+
+## License
+[MIT License](LICENSE) - Feel free to use, modify, and distribute this code!
