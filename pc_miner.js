@@ -76,11 +76,17 @@ if (!isMainThread) {
     const options = {
       method,
       headers: { 
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36',
         'Origin': 'https://rpow2.com',
         'Referer': 'https://rpow2.com/',
         'Accept': 'application/json, text/plain, */*',
         'Accept-Language': 'en-US,en;q=0.9',
+        'Sec-Ch-Ua': '"Not(A:Brand";v="99", "Google Chrome";v="142", "Chromium";v="142"',
+        'Sec-Ch-Ua-Mobile': '?0',
+        'Sec-Ch-Ua-Platform': '"Windows"',
+        'Sec-Fetch-Dest': 'empty',
+        'Sec-Fetch-Mode': 'cors',
+        'Sec-Fetch-Site': 'same-site',
         ...extraHeaders 
       }
     };
