@@ -251,37 +251,42 @@ Press Ctrl+C to stop
     setInterval(renderDashboard, 250); // Redraw dashboard every 250ms
 
     while (true) {
-      currentStatus = 'FETCHING CHALLENGE...';
-      const chRes = await apiFetch('POST', '/challenge');
-      if (!chRes.ok) {
-        currentStatus = `ERROR: ${await chRes.text()}`;
+      try {
+        currentStatus = 'FETCHING CHALLENGE...';
+        const chRes = await apiFetch('POST', '/challenge');
+        if (!chRes.ok) {
+          currentStatus = `ERROR: ${await chRes.text()}`;
+          await new Promise(r => setTimeout(r, 5000));
+          continue;
+        }
+
+        const ch = await chRes.json();
+        currentTarget = ch.difficulty_bits;
+        currentStatus = 'MINING';
+        currentHashes = 0;
+        currentElapsedMs = 0;
+        currentRate = '0.00';
+
+        const solutionNonce = await runWorkers(ch.nonce_prefix, ch.difficulty_bits);
+
+        currentStatus = 'SUBMITTING...';
+        const mintRes = await apiFetch('POST', '/mint', {
+          challenge_id: ch.challenge_id,
+          solution_nonce: solutionNonce
+        });
+
+        if (mintRes.ok) {
+          const data = await mintRes.json();
+          sessionMinted++;
+          lastTokenId = data.token.id;
+          await updateWallet(); // Refresh wallet stats
+        } else {
+          currentStatus = `MINT FAILED: ${await mintRes.text()}`;
+          await new Promise(r => setTimeout(r, 3000));
+        }
+      } catch (err) {
+        currentStatus = `NETWORK ERROR: ${err.message}`;
         await new Promise(r => setTimeout(r, 5000));
-        continue;
-      }
-
-      const ch = await chRes.json();
-      currentTarget = ch.difficulty_bits;
-      currentStatus = 'MINING';
-      currentHashes = 0;
-      currentElapsedMs = 0;
-      currentRate = '0.00';
-
-      const solutionNonce = await runWorkers(ch.nonce_prefix, ch.difficulty_bits);
-
-      currentStatus = 'SUBMITTING...';
-      const mintRes = await apiFetch('POST', '/mint', {
-        challenge_id: ch.challenge_id,
-        solution_nonce: solutionNonce
-      });
-
-      if (mintRes.ok) {
-        const data = await mintRes.json();
-        sessionMinted++;
-        lastTokenId = data.token.id;
-        await updateWallet(); // Refresh wallet stats
-      } else {
-        currentStatus = `MINT FAILED: ${await mintRes.text()}`;
-        await new Promise(r => setTimeout(r, 3000));
       }
     }
   }
