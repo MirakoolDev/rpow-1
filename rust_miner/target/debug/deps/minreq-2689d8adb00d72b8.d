@@ -1,0 +1,11 @@
+C:\Users\GU502\Desktop\experiments\rpow2\rust_miner\target\debug\deps\libminreq-2689d8adb00d72b8.rmeta: C:\Users\GU502\.cargo\registry\src\index.crates.io-6f17d22bba15001f\minreq-2.14.1\src/lib.rs C:\Users\GU502\.cargo\registry\src\index.crates.io-6f17d22bba15001f\minreq-2.14.1\src\connection.rs C:\Users\GU502\.cargo\registry\src\index.crates.io-6f17d22bba15001f\minreq-2.14.1\src\connection\rustls_stream.rs C:\Users\GU502\.cargo\registry\src\index.crates.io-6f17d22bba15001f\minreq-2.14.1\src\error.rs C:\Users\GU502\.cargo\registry\src\index.crates.io-6f17d22bba15001f\minreq-2.14.1\src\http_url.rs C:\Users\GU502\.cargo\registry\src\index.crates.io-6f17d22bba15001f\minreq-2.14.1\src\request.rs C:\Users\GU502\.cargo\registry\src\index.crates.io-6f17d22bba15001f\minreq-2.14.1\src\response.rs
+
+C:\Users\GU502\Desktop\experiments\rpow2\rust_miner\target\debug\deps\minreq-2689d8adb00d72b8.d: C:\Users\GU502\.cargo\registry\src\index.crates.io-6f17d22bba15001f\minreq-2.14.1\src/lib.rs C:\Users\GU502\.cargo\registry\src\index.crates.io-6f17d22bba15001f\minreq-2.14.1\src\connection.rs C:\Users\GU502\.cargo\registry\src\index.crates.io-6f17d22bba15001f\minreq-2.14.1\src\connection\rustls_stream.rs C:\Users\GU502\.cargo\registry\src\index.crates.io-6f17d22bba15001f\minreq-2.14.1\src\error.rs C:\Users\GU502\.cargo\registry\src\index.crates.io-6f17d22bba15001f\minreq-2.14.1\src\http_url.rs C:\Users\GU502\.cargo\registry\src\index.crates.io-6f17d22bba15001f\minreq-2.14.1\src\request.rs C:\Users\GU502\.cargo\registry\src\index.crates.io-6f17d22bba15001f\minreq-2.14.1\src\response.rs
+
+C:\Users\GU502\.cargo\registry\src\index.crates.io-6f17d22bba15001f\minreq-2.14.1\src/lib.rs:
+C:\Users\GU502\.cargo\registry\src\index.crates.io-6f17d22bba15001f\minreq-2.14.1\src\connection.rs:
+C:\Users\GU502\.cargo\registry\src\index.crates.io-6f17d22bba15001f\minreq-2.14.1\src\connection\rustls_stream.rs:
+C:\Users\GU502\.cargo\registry\src\index.crates.io-6f17d22bba15001f\minreq-2.14.1\src\error.rs:
+C:\Users\GU502\.cargo\registry\src\index.crates.io-6f17d22bba15001f\minreq-2.14.1\src\http_url.rs:
+C:\Users\GU502\.cargo\registry\src\index.crates.io-6f17d22bba15001f\minreq-2.14.1\src\request.rs:
+C:\Users\GU502\.cargo\registry\src\index.crates.io-6f17d22bba15001f\minreq-2.14.1\src\response.rs:
